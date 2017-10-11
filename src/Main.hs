@@ -14,7 +14,7 @@ import HConsole
 
 width, height, offset, fps :: Int
 width = 600
-height = 600
+height = 800
 offset = 10
 fps = 15
 
@@ -25,8 +25,12 @@ background :: Color
 background = greyN 0.2
 
 render :: HGame -> IO Picture
-render game = return $ pictures [(renderBoard b), (renderScorePane 440000)]
+render game = return $ pictures [(renderBoard b), scorePane, nextBox, holdBox, levelBox]
   where b = activeBoard game
+        scorePane = renderScorePane $ score game
+        nextBox = renderNextMino $ nextMino game
+        holdBox = renderHoldMino $ holdMino game
+        levelBox = renderLevelBox $ level game
 
 testEvent :: Event -> HGame -> IO HGame
 testEvent (EventKey (SpecialKey KeyLeft) pressed _ _) old =
@@ -52,6 +56,10 @@ testEvent (EventKey (Char 'd') pressed _ _) old =
 testEvent (EventKey (Char 'a') pressed _ _) old =
    return $ case pressed of
                Down -> old { button = Just AA, buttonChanged = True }
+               Up -> old { button = Nothing }
+testEvent (EventKey (Char 's') pressed _ _) old =
+   return $ case pressed of
+               Down -> old { button = Just AS, buttonChanged = True }
                Up -> old { button = Nothing }
 testEvent _ old = return old
 
