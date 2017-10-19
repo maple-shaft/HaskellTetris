@@ -127,5 +127,3 @@ moveBlocksDownI i blocks = trace (show f) $ f --M.map moveBlockDown blocks
   where movedBlocks = L.map (moveBlockDownI i) (M.elems blocks)
         f = L.foldr (\x acc -> M.insert (coordinate x) x acc) M.empty movedBlocks
         
-
-        

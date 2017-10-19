@@ -86,5 +86,4 @@ main = do
   ts <- getRandomTypes
   bg <- backgroundPic
   playIO window background fps (initialState ts) (render bg) testEvent step 
-  
 
