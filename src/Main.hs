@@ -37,7 +37,7 @@ render bg game = return $ pictures renderPictures
         menuBox = renderMenu menuPic
         renderPictures = if (started game)
                             then [bg, (renderBoard b), scorePane, nextBox, holdBox, levelBox]
-                            else [bg, menuBox]
+                            else [bg, menuBox, testPNG]
 
 testEvent :: Event -> HGame -> IO HGame
 testEvent (EventKey (SpecialKey KeyLeft) pressed _ _) old =
