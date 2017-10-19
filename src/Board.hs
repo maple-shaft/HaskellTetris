@@ -15,6 +15,8 @@ data Board = Board
   , settledBlocks :: Map (Int, Int) Block
   , hintBlocks :: Map (Int, Int) Block
   , activeMino :: Mino
+  , clearingTime :: Float
+  , clearCycled :: Bool
   } deriving (Show)
 
 --constants
@@ -32,7 +34,29 @@ startingBoard t = Board
                   , settledBlocks = M.empty
                   , hintBlocks = M.empty
                   , activeMino = makeMino t
+                  , clearingTime = 0
+                  , clearCycled = False
                   }
+                  
+updateClearTimer :: Float -> Board -> Board
+updateClearTimer seconds b = --trace (show (shouldAnimateClearLine potentialBoard)) $
+    new
+  where startTime = clearingTime b
+        potentialBoard = b { clearingTime = (startTime + seconds) }
+        areThereLines = not $ ((findNonCompleteLineIndices b) == [])
+        new = if (areThereLines)
+                  then potentialBoard
+                  else b
+                  
+shouldAnimateClearLine :: Board -> Bool
+shouldAnimateClearLine b = --trace (show isTimeUp) $
+    (not isTimeUp)
+  where isTimeUp = (clearingTime b) > (0.30)
+  
+shouldClearLineNow :: Board -> Bool
+shouldClearLineNow b = (areThereCompleteLines && (not (shouldAnimateClearLine b)))
+  where areThereCompleteLines = not ((findNonCompleteLineIndices b) == []) 
+        
 
 getBlockAt :: (Int, Int) -> Board -> Maybe Block
 getBlockAt (x,y) b = lookupSettled
@@ -46,12 +70,15 @@ getAllHintBlocks b =
 getAllBoardBlocks :: Board -> [Block]
 getAllBoardBlocks b = M.elems $ boardBlocks b
 
+-- | Get all settled blocks
 getAllSettledBlocks :: Board -> [Block]
-getAllSettledBlocks b = M.elems $ settledBlocks b
+getAllSettledBlocks b = blocks
+  where blocks = M.elems $ settledBlocks b
 
 renderBoard :: Board -> Picture
-renderBoard b = pictures $ (renderBlock startXOffset startYOffset) <$> allRenders
-  where allRenders = L.concat $ L.map ($ b) [getAllBoardBlocks, getAllSettledBlocks, getAllHintBlocks, minoBlocks.activeMino]        
+renderBoard b = pictures $ renderBlockFunc <$> allRenders
+  where allRenders = (L.concat $ L.map ($ b) [getAllBoardBlocks, getAllSettledBlocks, getAllHintBlocks, minoBlocks.activeMino])
+        renderBlockFunc = renderBlock startXOffset startYOffset
 
 couldMinoMoveDown :: Mino -> Board -> Bool
 couldMinoMoveDown m b = all (couldBlockMoveDown b) blocks
@@ -86,3 +113,39 @@ insertBlocksToSettled b blocks = L.foldr insertSettledBlock (settledBlocks b) bl
 insertBlocksToHint :: Board -> [Block] -> Map (Int,Int) Block
 insertBlocksToHint b blocks = L.foldr insertHintBlock M.empty blocks
   where insertHintBlock = (\x acc -> M.insert (coordinate x) x acc)
+
+getSettledLineBlocks :: Board -> Int -> [Block]
+getSettledLineBlocks b f = 
+     M.elems maybeBlocks
+  where tr = (\k v -> ((snd k) == f))
+        maybeBlocks = filterWithKey tr (settledBlocks b)
+
+findCompleteLineIndices :: Board -> [Int]
+findCompleteLineIndices b = L.filter (\x -> not $ (length $ getSettledLineBlocks b x) == boardWidth) [1..boardHeight]
+
+findNonCompleteLineIndices :: Board -> [Int]
+findNonCompleteLineIndices b = L.filter (\x -> (length $ getSettledLineBlocks b x) == boardWidth) [1..boardHeight]
+
+findNonCompleteLines :: Board -> [[Block]]
+findNonCompleteLines b = L.map (getSettledLineBlocks b) (findCompleteLineIndices b)
+
+findCompleteLines :: Board -> [[Block]]
+findCompleteLines b = L.map (getSettledLineBlocks b) (findNonCompleteLineIndices b)
+
+clearCompLines :: Board -> Board
+clearCompLines b = if settledBlocksToClear == []
+                      then b
+                      else b { settledBlocks = newSettledBlocks' }
+  where settledBlocksToClear = L.concat $ findNonCompleteLines b
+        newSettledBlocks = M.filter (\x -> elem x settledBlocksToClear) (settledBlocks b)
+        boardWithClearedBlocks = b { settledBlocks = newSettledBlocks }
+        completedLineIndices = findNonCompleteLineIndices b
+        c = M.fromList $ L.map (\x -> (x, length(L.filter (x <) completedLineIndices))) [1..boardHeight]
+        f = M.elems $ M.mapWithKey (\(kx,ky) v -> moveBlockDownI (fromJust $ M.lookup ky c) v) newSettledBlocks
+        finalBoard = boardWithClearedBlocks { settledBlocks = M.empty }
+        newSettledBlocks' = insertBlocksToSettled finalBoard f
+
+newBoardWithActiveMino :: Mino -> Board -> Board
+newBoardWithActiveMino m b = b { activeMino = m, hintBlocks = newHint }
+  where newHintBlocks = makeHintBlocks m
+        newHint = insertBlocksToHint b newHintBlocks

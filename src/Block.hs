@@ -3,15 +3,16 @@ module Block where
 
 import Control.Monad
 import System.Random
-import qualified Data.Map (Map, fromList) 
+import Data.Map as M
+import Data.List as L
 import Debug.Trace
 import Graphics.Gloss
 import Graphics.Gloss.Data.ViewPort
 
 -- constants
 
-size, innerBSide :: Float
-size = 20
+bSize, innerBSide :: Float
+bSize = 20
 innerBSide = 18
 
 blockBorderColor = white
@@ -29,7 +30,7 @@ data Block = Block
    { blockType :: BlockType
    , coordinate :: (Int, Int)
    , blockColor :: Color
-   } deriving (Show)
+   }
    
 instance Eq Block where
    x == y = a && b
@@ -40,6 +41,9 @@ instance Eq Block where
 -- | blocks to state delta coordinates for zipping when performing a rotation.
 instance Ord Block where
    x `compare` y = compare (coordinate x) (coordinate y)
+   
+instance Show Block where
+   show x = show $ coordinate x
                     
 makeActiveBlock :: Color -> (Int, Int) -> Block
 makeActiveBlock c (x,y) = Block { blockType = Active
@@ -70,18 +74,22 @@ makeHintBlock c coor = Block
 renderHint :: Float -> Float -> [Block] -> Picture
 renderHint xOffset yOffset h = pictures $ (renderBlock xOffset yOffset) <$> h
 
+-- | Renders a block by a given offset and a possible color.  If the line is currently
+-- | being cleared then this color might be a transitional state for animation.
 renderBlock :: Float -> Float -> Block -> Picture
 renderBlock xOffset yOffset b = pictures [borderBlock, innerBlock]
   where innerBlockColor = case (blockType b) of
                              Hint -> color boardBackground
-                             _       -> color (blockColor b)
+                             _    -> color (blockColor b)
         innerBlock = translate (xPixel) (yPixel) $ innerBlockColor $ rectangleSolid innerBSide innerBSide
         borderBlockColor = case (blockType b) of
                               Background -> color boardBorderColor
                               Hint    -> color $ blockColor b
-                              _          -> color blockBorderColor
-        borderBlock = translate xPixel yPixel $ borderBlockColor $ rectangleSolid size size
+                              _       -> color blockBorderColor
+        borderBlock = translate xPixel yPixel $ borderBlockColor $ rectangleSolid bSize bSize
         (xPixel,yPixel) = convertCoordinate xOffset yOffset (coordinate b)
+        
+
             
 convertCoordinate :: Float -> Float -> (Int,Int) -> (Float,Float)
 convertCoordinate xOffset yOffset (x,y) = (xPixel, yPixel)
@@ -100,3 +108,24 @@ moveBlockAbsolute c b = b { coordinate = c }
   
 moveBlockFlipped :: Block -> (Int,Int) -> (Int,Int) -> Block
 moveBlockFlipped a b c = moveBlock b c a
+
+moveBlockDown :: Block -> Block
+moveBlockDown b = b { coordinate = (x,y+1) }
+  where (x,y) = coordinate b
+  
+moveBlockDownI :: Int -> Block -> Block
+moveBlockDownI i b = b { coordinate = (x,y+i) }
+  where (x,y) = coordinate b
+  
+moveBlocksDown :: Map (Int,Int) Block -> Map (Int,Int) Block
+moveBlocksDown blocks = trace (show f) $ f --M.map moveBlockDown blocks
+  where movedBlocks = L.map moveBlockDown (M.elems blocks)
+        f = L.foldr (\x acc -> M.insert (coordinate x) x acc) M.empty movedBlocks
+        
+moveBlocksDownI :: Int -> Map (Int,Int) Block -> Map (Int,Int) Block
+moveBlocksDownI i blocks = trace (show f) $ f --M.map moveBlockDown blocks
+  where movedBlocks = L.map (moveBlockDownI i) (M.elems blocks)
+        f = L.foldr (\x acc -> M.insert (coordinate x) x acc) M.empty movedBlocks
+        
+
+        
