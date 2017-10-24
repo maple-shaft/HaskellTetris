@@ -3,6 +3,7 @@ module Menu where
 import Block
 import Mino
 import Board
+import GlossUtilities
 import Graphics.Gloss
 import Graphics.Gloss.Data.Picture
 import Graphics.Gloss.Interface.IO.Game
@@ -20,23 +21,20 @@ menuTextScale = 0.2
 
 data MenuButtonType = StartButton | ExitButton deriving (Show)
 data MenuButton = MenuButton { location :: (Float,Float)
-                             , labelLocation :: (Float,Float)
                              , buttonSize :: (Float,Float)
-                             , labelText :: String
+                             , menuButtonPicture :: Picture
                              , buttonType :: MenuButtonType
                              } deriving (Show)
                                
 startButton = MenuButton { location = (0,40)
-                         , labelLocation = (-30,30)
                          , buttonSize = (100,80)
-                         , labelText = "Start"
+                         , menuButtonPicture = startButtonPic
                          , buttonType = StartButton
                          }
                          
 exitButton = MenuButton { location = (0,-60)
-                        , labelLocation = (-20,-70)
                         , buttonSize = (100,80)
-                        , labelText = "Exit"
+                        , menuButtonPicture = exitButtonPic
                         , buttonType = ExitButton
                         }
                         
@@ -57,23 +55,12 @@ bottomMostCoordinate b = middleY - (height / 2)
         height = snd $ buttonSize b
                         
 renderButton :: MenuButton -> Picture
-renderButton b = pictures [bPic, bText]
-  where uncurriedTranslate = uncurry translate
-        bPic = color blue $
-               uncurry translate (location b) $
-               uncurry rectangleSolid $ buttonSize b
-        bText = color black $
-                uncurry translate (labelLocation b) $
-                scale menuTextScale menuTextScale $
-                text $ labelText b
+renderButton b = uncurry translate (location b) $ menuButtonPicture b 
 
 renderMenu :: Picture -> Picture
 renderMenu menuPic = pictures [menuBox, title, startB, exitB]
   where (mX,mY) = menuLocation
         (tX,tY) = menuLabelLocation
-        menuBorder = color black $
-                     translate mX mY $
-                     rectangleSolid menuWidth menuHeight
         menuBox = translate mX mY $ menuPic
         title = color black $
                 translate tX tY $
@@ -88,4 +75,10 @@ checkClickEvent (x', y') = case button of
                               Just b  -> Just (buttonType b)
   where isX b = elem x' [(leftMostCoordinate b)..(rightMostCoordinate b)]
         isY b = elem y' [(topMostCoordinate b),((topMostCoordinate b) - 1)..(bottomMostCoordinate b)]
-        button = find (\b -> (isX b) && (isY b)) [startButton, exitButton]
+        button = find (\b -> (isX b) && (isY b)) [startButton, restartButton, exitButton]
+        
+restartButton :: MenuButton
+restartButton = startButton { location = (0,-200) }
+
+renderRestartButton :: Picture
+renderRestartButton = uncurry translate (location restartButton) (menuButtonPicture restartButton)

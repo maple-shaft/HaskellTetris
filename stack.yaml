@@ -37,9 +37,17 @@ resolver: lts-9.6
 # will not be run. This is useful for tweaking upstream packages.
 packages:
 - '.'
+# - location:
+#    git: https://github.com/maple-shaft/gloss.git
+#    commit: 6447c599b300c63c79878698b557403c442228d9
+#  extra-dep: true
+#  subdirs:
+#  - gloss-rendering
+
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
 extra-deps: []
+
 
 # Override default flag values for local packages and extra-deps
 flags: {}
@@ -65,5 +73,5 @@ extra-package-dbs: []
 # Allow a newer minor version of GHC than the snapshot specifies
 # compiler-check: newer-minor
 
-ghc-options:
-    "*": -O2
+#ghc-options: []
+#    -O2 -Wall -threaded

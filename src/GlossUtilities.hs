@@ -21,17 +21,29 @@ bgFileData :: B.ByteString
 bgFileData = $(embedFile "res/bg.bmp")
 
 menuFileData :: B.ByteString
-menuFileData = $(embedFile "res/menu.bmp")
+menuFileData = $(embedFile "res/menu.png")
 
 startButtonFileData :: B.ByteString
 startButtonFileData = $(embedFile "res/start.png")
 
-startButtonPic :: Picture
-startButtonPic = fromJust mpic
-  where dyn = decodePng startButtonFileData
+exitButtonFileData :: B.ByteString
+exitButtonFileData = $(embedFile "res/exit.png")
+
+createPictureFromPNG :: B.ByteString -> Picture
+createPictureFromPNG b = fromJust mpic
+  where dyn = decodePng b
         mpic = case (dyn) of
                   Right d -> fromDynamicImage d
                   _       -> Nothing
+
+startButtonPic :: Picture
+startButtonPic = createPictureFromPNG startButtonFileData
+
+exitButtonPic :: Picture
+exitButtonPic = createPictureFromPNG exitButtonFileData
+
+menuPic :: Picture
+menuPic = createPictureFromPNG menuFileData
 
 createPicture :: Bool -> Int -> Int -> B.ByteString -> Picture
 createPicture isTransparent x y fileData = bitmapOfBMP cBmp
@@ -54,12 +66,7 @@ backgroundPic = return $ pictures $ trans <$> [-5..5] <*> [-5..5]
   where trans x y = translate (x * 164) (y * 155) $ tile
         tile = createPicture False 164 155 bgFileData
 
-menuPic :: Picture
-menuPic = pictures $ trans <$> [-30..30] <*> [-150..150]
-  where tile = createPicture True 5 2 menuFileData
-        trans x y = translate (x * 5) (y * 2) $ tile
-        
-        
+------------
         
 fromDynamicImage :: DynamicImage -> Maybe Picture
 fromDynamicImage (ImageY8 img)     = Just $ fromImageY8 img

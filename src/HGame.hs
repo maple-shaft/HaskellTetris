@@ -10,11 +10,14 @@ import Data.Map as M
 import Graphics.Gloss
 import Graphics.Gloss.Data.Color
 
+data State = NotStarted | Started | Over deriving (Show, Eq)
+
 data HGame = Game
   { activeBoard :: Board
   , nextMino :: Mino
   , level :: Int
   , holdMino :: Maybe Mino
+  , minoMovedYet :: Bool
   , speed :: Float
   , button :: Maybe Action
   , buttonChanged :: Bool
@@ -22,7 +25,7 @@ data HGame = Game
   , lastBlockRefresh :: Float
   , score :: Int
   , randomTypes :: [MinoType]
-  , started :: Bool
+  , state :: State
   }
   
 -- | Initialize the game with this game state.
@@ -30,7 +33,9 @@ initialState :: [MinoType] -> HGame
 initialState ts = Game
   { activeBoard = startingBoard $ (head $ tail ts)
   , nextMino = makeMino $ head ts
+  , minoMovedYet = False
   , holdMino = Nothing
+  , state = NotStarted
   , level = 1
   , speed = 1
   , button = Nothing
@@ -39,7 +44,6 @@ initialState ts = Game
   , lastBlockRefresh = 0
   , score = 0
   , randomTypes = tail $ tail ts
-  , started = False
   }
   
 -- Line Score Constants
@@ -53,7 +57,7 @@ lineScore _ = error "Invalid"
   
 -- | General step World function.  Master function that calls other game state modifying functions
 stepWorld :: Float -> HGame -> HGame
-stepWorld seconds old = n5
+stepWorld seconds old = if (state n5) == Over then noChangeGameOver else n5
   where m = activeMino $ activeBoard old
         action = button old
         n1 = updateTimer seconds old
@@ -62,6 +66,7 @@ stepWorld seconds old = n5
         n3 = L.foldl (flip (.)) id allActions $ n2
         n4 = stepMoveDown n3
         n5 = clearLinesState n4
+        noChangeGameOver = old { state = Over }
         
 updateTimer :: Float -> HGame -> HGame
 updateTimer seconds old = new
@@ -72,15 +77,16 @@ updateTimer seconds old = new
                   else old { lastBlockRefresh = (startTime + seconds), timerCycled = False }
                   
 stepMoveDown :: HGame -> HGame
-stepMoveDown old = new'
+stepMoveDown old = newState
   where b = activeBoard old
         m = activeMino b
         shouldMove = timerCycled old
+        didTheMinoMove = minoMovedYet old
         couldMove = couldMinoMoveDown m (activeBoard old)
         new = if (shouldMove && (not couldMove))
-                 then stopMino old
+                 then if didTheMinoMove then (stopMino old) else (stopMino old { state = Over })
                  else old
-        new' = if (shouldMove && couldMove)
+        newState = if (shouldMove && couldMove)
                   then moveDown $ new
                   else new
                   
@@ -175,7 +181,7 @@ clearLinesState old =
         newAnimatedSettledBlocks = L.foldr (\x acc -> M.insert (coordinate x) x acc) (settledBlocks b) brightenedBlocks
 
 moveDown :: HGame -> HGame
-moveDown g = moveAction (Just ADown) g
+moveDown g = moveAction (Just ADown) (g { minoMovedYet = True })
 
 moveMinoToBottomAndStop :: Maybe Action -> HGame -> HGame
 moveMinoToBottomAndStop action old =
@@ -192,6 +198,7 @@ stopMino old =
     ( old { activeBoard = newBoard { settledBlocks = newSettled }
                    , randomTypes = tail $ randomTypes old
                    , nextMino = newNextMino
+                   , minoMovedYet = False
                    }
                )
   where b = activeBoard old
