@@ -1,9 +1,6 @@
 module Main where
 
-import Debug.Trace
-import Data.Maybe
 import Graphics.Gloss
-import Graphics.Gloss.Data.ViewPort
 import Graphics.Gloss.Interface.IO.Game
 import Block
 import Board

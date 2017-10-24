@@ -1,13 +1,10 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Block where
 
-import Control.Monad
-import System.Random
 import Data.Map as M
 import Data.List as L
 import Debug.Trace
 import Graphics.Gloss
-import Graphics.Gloss.Data.ViewPort
 
 -- constants
 
@@ -15,6 +12,7 @@ bSize, innerBSide :: Float
 bSize = 20
 innerBSide = 18
 
+blockBorderColor, boardBackground, boardBorderColor, settledBlockColor :: Color
 blockBorderColor = white
 boardBackground = makeColorI 0xF0 0xF0 0xF0 0xF0
 boardBorderColor = makeColorI 0xFA 0xFA 0xFA 0xFA

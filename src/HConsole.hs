@@ -2,26 +2,29 @@ module HConsole where
 
 import Block
 import Mino
-import Board
 import Graphics.Gloss
-import Graphics.Gloss.Data.Picture
---import Graphics.Rendering.OpenGL                        (($=), get)
---import qualified Graphics.Rendering.OpenGL.GL           as GL
---import qualified Graphics.Rendering.OpenGL.GLU.Errors   as GLU
---import qualified Graphics.UI.GLUT as GLUT
 
 -- constants
-scorePaneBackgroundColor = black --makeColorI 0x00 0x00 0x00 0x00
+
+scorePaneBackgroundColor, scorePaneBorderColor, scorePaneTextColor :: Color
+scorePaneWidth, scorePaneInnerWidth, scorePaneHeight, scorePaneInnerHeight, scoreTextScale :: Float
+scorePaneTextLocation, scorePaneBoxLocation, scorePaneLabelLocation :: (Float,Float)
+
+scorePaneBackgroundColor = black
 scorePaneBorderColor = makeColorI 0xFF 0xFF 0xFF 0xFF
 scorePaneTextColor = makeColorI 0xFF 0xFF 0xFF 0xFF
 scorePaneWidth = 200.0
 scorePaneInnerWidth = 195.0
 scorePaneHeight = 50.0
 scorePaneInnerHeight = 45.0
-scorePaneTextLocation = (-60,230) :: (Float,Float)
-scorePaneBoxLocation = (-10,240) :: (Float,Float)
-scorePaneLabelLocation = (-60,270) :: (Float,Float)
+scorePaneTextLocation = (-60,230)
+scorePaneBoxLocation = (-10,240)
+scorePaneLabelLocation = (-60,270)
 scoreTextScale = 0.2
+
+nextBoxBackgroundColor, nextBoxBorderColor, nextTextColor :: Color
+nextBoxWidth, nextBoxInnerWidth, nextBoxHeight, nextBoxInnerHeight, nextTextScale :: Float
+nextBlockLocation, nextBoxLocation, nextTextLocation :: (Float,Float)
 
 nextBoxBackgroundColor = black
 nextBoxBorderColor = white
@@ -30,10 +33,14 @@ nextBoxWidth = 120.0
 nextBoxInnerWidth = 115.0
 nextBoxHeight = 80.0
 nextBoxInnerHeight = 75.0
-nextBlockLocation = (270,180) :: (Float,Float)
-nextBoxLocation = (160,150) :: (Float,Float)
-nextTextLocation = (150,200) :: (Float,Float)
+nextBlockLocation = (270,180)
+nextBoxLocation = (160,150)
+nextTextLocation = (150,200)
 nextTextScale = 0.15
+
+holdBoxBackgroundColor, holdBoxBorderColor, holdBoxTextColor :: Color
+holdBoxWidth, holdBoxInnerWidth, holdBoxHeight, holdBoxInnerHeight, holdTextScale :: Float
+holdBlockLocation, holdBoxLocation, holdTextLocation :: (Float,Float)
 
 holdBoxBackgroundColor = black
 holdBoxBorderColor = white
@@ -42,10 +49,14 @@ holdBoxWidth = 120.0
 holdBoxInnerWidth = 115.0
 holdBoxHeight = 80.0
 holdBoxInnerHeight = 75.0
-holdBlockLocation = (-70,180) :: (Float,Float)
-holdBoxLocation = (-180,150) :: (Float,Float)
-holdTextLocation = (-190,200) :: (Float,Float)
+holdBlockLocation = (-70,180)
+holdBoxLocation = (-180,150)
+holdTextLocation = (-190,200)
 holdTextScale = 0.15
+
+levelBoxBackgroundColor, levelBoxBorderColor, levelBoxTextColor :: Color
+levelBoxWidth, levelBoxInnerWidth, levelBoxHeight, levelBoxInnerHeight, levelTextScale :: Float
+levelBlockLocation, levelBoxLocation, levelTextLocation, levelLabelLocation :: (Float,Float)
 
 levelBoxBackgroundColor = black
 levelBoxBorderColor = white
@@ -54,10 +65,10 @@ levelBoxWidth = 100.0
 levelBoxInnerWidth = 95.0
 levelBoxHeight = 50.0
 levelBoxInnerHeight = 45.0
-levelBlockLocation = (-60,50) :: (Float,Float)
-levelBoxLocation = (-170,20) :: (Float,Float)
-levelTextLocation = (-170,15) :: (Float,Float)
-levelLabelLocation = (-190,70) :: (Float,Float)
+levelBlockLocation = (-60,50)
+levelBoxLocation = (-170,20)
+levelTextLocation = (-170,15)
+levelLabelLocation = (-190,70)
 levelTextScale = 0.15
 
 renderScorePane :: Int -> Picture

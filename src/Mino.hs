@@ -3,14 +3,13 @@ module Mino where
 import Block
 import Control.Monad
 import System.Random
-import Debug.Trace
 import Data.Maybe
 import Data.List as L
 import Data.Map as M
 import Graphics.Gloss
-import Graphics.Gloss.Data.Color
 
 -- starting coodinates for all 7 types
+icoord, ocoord, tcoord, jcoord, lcoord, scoord, zcoord :: [(Int,Int)]
 icoord = [(4,2),(5,2),(6,2),(7,2)]
 ocoord = [(5,1),(6,1),(5,2),(6,2)]
 tcoord = [(5,1),(4,2),(5,2),(6,2)]
@@ -113,12 +112,13 @@ getRandomTypes = L.map intToType <$> liftM (randomRs (0 :: Int, 6 :: Int)) getSt
              | c == 3 = J
              | c == 4 = L
              | c == 5 = S
-             | c == 6 = Z
+             | otherwise = Z
 
 makeMino :: MinoType -> Mino
 makeMino t = 
-  let make = (makeActiveBlock $ getMinoColor t)
-      create x = Mino { minoBlocks = (make <$> x), minoType = t, minoState = (2 ^ 14), minoLocation = (4,1)}
+  let startingState = ((2 :: Int) ^ (14 :: Int)) :: MinoState
+      make = (makeActiveBlock $ getMinoColor t)
+      create x = Mino { minoBlocks = (make <$> x), minoType = t, minoState = startingState, minoLocation = (4,1)}
   in case t of
     I -> create icoord
     O -> create ocoord

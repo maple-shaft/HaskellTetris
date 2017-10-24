@@ -76,14 +76,15 @@ fromDynamicImage (ImageRGBA8 img)  = Just $ fromImageRGBA8 img
 fromDynamicImage (ImageYCbCr8 img) = Just $ fromImageYCbCr8 img
 fromDynamicImage (ImageRGBF _)     = Nothing
 fromDynamicImage (ImageYF _)       = Nothing
+fromDynamicImage _                 = Nothing
 
 -- | O(N) conversion from 'PixelRGBA8' image to gloss 'Picture', where N is the number of pixels.
 fromImageRGBA8 :: Image PixelRGBA8 -> Picture
-fromImageRGBA8 (Image { imageWidth = w, imageHeight = h, imageData = id }) =
+fromImageRGBA8 (Image { imageWidth = w, imageHeight = h, imageData = i }) =
   bitmapOfForeignPtr w h
                      (BitmapFormat TopToBottom PxRGBA)
                      ptr True
-    where (ptr, _, _) = unsafeToForeignPtr id
+    where (ptr, _, _) = unsafeToForeignPtr i
 {-# INLINE fromImageRGBA8 #-}
 
 -- | Creation of a gloss 'Picture' by promoting (through 'promoteImage') the 'PixelRGB8' image to 'PixelRGBA8' and calling 'fromImageRGBA8'.

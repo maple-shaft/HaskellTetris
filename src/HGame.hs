@@ -3,11 +3,8 @@ module HGame where
 import Board
 import Block
 import Mino
-import Debug.Trace
-import Data.Maybe
 import Data.List as L
 import Data.Map as M
-import Graphics.Gloss
 import Graphics.Gloss.Data.Color
 
 data State = NotStarted | Started | Over deriving (Show, Eq)
@@ -58,8 +55,7 @@ lineScore _ = error "Invalid"
 -- | General step World function.  Master function that calls other game state modifying functions
 stepWorld :: Float -> HGame -> HGame
 stepWorld seconds old = if (state n5) == Over then noChangeGameOver else n5
-  where m = activeMino $ activeBoard old
-        action = button old
+  where action = button old
         n1 = updateTimer seconds old
         n2 = n1 { activeBoard = (updateClearTimer seconds (activeBoard old)) }
         allActions = L.map ($ action) [moveMinoToBottomAndStop, moveAction, rotateAction, holdAction, hintUpdate]
@@ -97,7 +93,6 @@ moveAction action old =
        else old { activeBoard = b { activeMino = newM } }
   where b = activeBoard old
         m = activeMino b
-        (mX,mY) = minoLocation m
         (deltaX, deltaY) = case action of
                               Just ALeft -> (1,0)
                               Just ARight -> (-1,0)
@@ -120,7 +115,7 @@ rotateAction action old =
                 }
   where b = activeBoard old
         m = activeMino b
-        loc@(mX,mY) = minoLocation m
+        loc = minoLocation m
         blocks = sort $ minoBlocks m
         rotate = case action of
                               Just AA -> -1
@@ -160,7 +155,7 @@ hintUpdate action old =
         (_,minoBottom) = findMinoBottom b m
         hB = sort $ getAllHintBlocks b
         mC = sort $ (coordinate) <$> (minoBlocks m)
-        newHintBlocks = insertBlocksToHint b (zipWith (\(mX,mY) hh -> moveBlockAbsolute (mX, mY + minoBottom) hh) mC hB)
+        newHintBlocks = insertBlocksToHint (zipWith (\(mX,mY) hh -> moveBlockAbsolute (mX, mY + minoBottom) hh) mC hB)
         
 -- | Start all animation to clear the lines then get rid of them
 clearLinesState :: HGame -> HGame

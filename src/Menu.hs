@@ -1,23 +1,22 @@
 module Menu where
 
-import Block
-import Mino
-import Board
 import GlossUtilities
 import Graphics.Gloss
-import Graphics.Gloss.Data.Picture
-import Graphics.Gloss.Interface.IO.Game
-import Debug.Trace
 import Data.List
 
+menuBackgroundColor, menuBorderColor, menuTextColor :: Color
 menuBackgroundColor = blue
 menuBorderColor = white
 menuTextColor = white
+
+menuWidth, menuHeight, menuTextScale :: Float
 menuWidth = 350.0
 menuHeight = 650.0
-menuLocation = (0,0) :: (Float,Float)
-menuLabelLocation = (-90,220) :: (Float,Float)
 menuTextScale = 0.2
+
+menuLocation, menuLabelLocation :: (Float,Float)
+menuLocation = (0,0)
+menuLabelLocation = (-90,220)
 
 data MenuButtonType = StartButton | ExitButton deriving (Show)
 data MenuButton = MenuButton { location :: (Float,Float)
@@ -25,13 +24,15 @@ data MenuButton = MenuButton { location :: (Float,Float)
                              , menuButtonPicture :: Picture
                              , buttonType :: MenuButtonType
                              } deriving (Show)
-                               
+                        
+startButton :: MenuButton       
 startButton = MenuButton { location = (0,40)
                          , buttonSize = (100,80)
                          , menuButtonPicture = startButtonPic
                          , buttonType = StartButton
                          }
-                         
+
+exitButton :: MenuButton                         
 exitButton = MenuButton { location = (0,-60)
                         , buttonSize = (100,80)
                         , menuButtonPicture = exitButtonPic
@@ -58,10 +59,10 @@ renderButton :: MenuButton -> Picture
 renderButton b = uncurry translate (location b) $ menuButtonPicture b 
 
 renderMenu :: Picture -> Picture
-renderMenu menuPic = pictures [menuBox, title, startB, exitB]
+renderMenu mPic = pictures [menuBox, title, startB, exitB]
   where (mX,mY) = menuLocation
         (tX,tY) = menuLabelLocation
-        menuBox = translate mX mY $ menuPic
+        menuBox = translate mX mY $ mPic
         title = color black $
                 translate tX tY $
                 scale menuTextScale menuTextScale $

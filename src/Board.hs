@@ -1,11 +1,9 @@
 module Board where
 
-import Debug.Trace
 import Data.Maybe
 import Data.List as L
 import Data.Map as M
 import Graphics.Gloss
-import Graphics.Gloss.Data.Color
 import Block
 import Mino
   
@@ -20,11 +18,15 @@ data Board = Board
   } deriving (Show)
 
 --constants
+boardHeight, boardWidth :: Int
 boardHeight = 22
 boardWidth = 10
+
+startYOffset, startXOffset :: Float
 startYOffset = 200
 startXOffset = 100
 
+allBackgroundBlocks :: [Block]
 allBackgroundBlocks = makeBackgroundBlock <$> [1..boardWidth] <*> [1..boardHeight]
 
 startingBoard :: MinoType -> Board
@@ -98,7 +100,7 @@ couldBlockMoveDelta board (x,y) (deltaX,deltaY) = xBool && yBool
         yBool = (elem potentialY [1..boardHeight]) && noBlockAt 
         
 couldMinoMoveDelta :: Board -> Mino -> (Int,Int) -> Bool
-couldMinoMoveDelta b m coor@(cX,cY) = 
+couldMinoMoveDelta b m coor = 
      all (\x -> couldBlockMoveDelta b x coor) c
   where c = sort $ L.map coordinate (minoBlocks m)      
 
@@ -110,14 +112,14 @@ insertBlocksToSettled :: Board -> [Block] -> Map (Int,Int) Block
 insertBlocksToSettled b blocks = L.foldr insertSettledBlock (settledBlocks b) blocks
   where insertSettledBlock = (\x acc -> M.insert (coordinate x) x acc)
   
-insertBlocksToHint :: Board -> [Block] -> Map (Int,Int) Block
-insertBlocksToHint b blocks = L.foldr insertHintBlock M.empty blocks
+insertBlocksToHint :: [Block] -> Map (Int,Int) Block
+insertBlocksToHint blocks = L.foldr insertHintBlock M.empty blocks
   where insertHintBlock = (\x acc -> M.insert (coordinate x) x acc)
 
 getSettledLineBlocks :: Board -> Int -> [Block]
 getSettledLineBlocks b f = 
      M.elems maybeBlocks
-  where tr = (\k v -> ((snd k) == f))
+  where tr = (\k _ -> ((snd k) == f))
         maybeBlocks = filterWithKey tr (settledBlocks b)
 
 findCompleteLineIndices :: Board -> [Int]
@@ -135,17 +137,17 @@ findCompleteLines b = L.map (getSettledLineBlocks b) (findNonCompleteLineIndices
 clearCompLines :: Board -> Board
 clearCompLines b = if settledBlocksToClear == []
                       then b
-                      else b { settledBlocks = newSettledBlocks' }
+                      else b { settledBlocks = newSettledBlocks2 }
   where settledBlocksToClear = L.concat $ findNonCompleteLines b
         newSettledBlocks = M.filter (\x -> elem x settledBlocksToClear) (settledBlocks b)
         boardWithClearedBlocks = b { settledBlocks = newSettledBlocks }
         completedLineIndices = findNonCompleteLineIndices b
         c = M.fromList $ L.map (\x -> (x, length(L.filter (x <) completedLineIndices))) [1..boardHeight]
-        f = M.elems $ M.mapWithKey (\(kx,ky) v -> moveBlockDownI (fromJust $ M.lookup ky c) v) newSettledBlocks
+        f = M.elems $ M.mapWithKey (\(_,ky) v -> moveBlockDownI (fromJust $ M.lookup ky c) v) newSettledBlocks
         finalBoard = boardWithClearedBlocks { settledBlocks = M.empty }
-        newSettledBlocks' = insertBlocksToSettled finalBoard f
+        newSettledBlocks2 = insertBlocksToSettled finalBoard f
 
 newBoardWithActiveMino :: Mino -> Board -> Board
 newBoardWithActiveMino m b = b { activeMino = m, hintBlocks = newHint }
   where newHintBlocks = makeHintBlocks m
-        newHint = insertBlocksToHint b newHintBlocks
+        newHint = insertBlocksToHint newHintBlocks
