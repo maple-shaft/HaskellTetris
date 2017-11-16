@@ -1,10 +1,16 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DeriveGeneric #-}
 module Block where
 
 import Data.Map as M
 import Data.List as L
+import Data.Maybe (fromJust)
 import Debug.Trace
 import Graphics.Gloss
+import Data.Aeson
+import Data.Aeson.Types
+import qualified Data.Text as T (pack, unpack, split, Text)
+import GHC.Generics
 
 -- constants
 
@@ -19,17 +25,45 @@ boardBorderColor = makeColorI 0xFA 0xFA 0xFA 0xFA
 settledBlockColor = greyN 0.2
    
 data Action = AUp | ADown | ALeft | ARight | AA | AS | AD
-       deriving (Show, Eq)
+       deriving (Show, Eq, Generic)
+       
+instance ToJSON Action where
+  toEncoding = genericToEncoding defaultOptions
+  
+instance FromJSON Action
 
 data BlockType = Background | Active | Settled | Hint
-       deriving (Show, Eq)
+       deriving (Show, Eq, Generic)
+       
+instance ToJSON BlockType where
+   toEncoding = genericToEncoding defaultOptions
+   
+instance FromJSON BlockType where
+  parseJSON = genericParseJSON defaultOptions
+   
+instance ToJSON Color where
+  toJSON c = String (T.pack $ show c)
+  
+instance FromJSON Color where
+  parseJSON = withText "Color" $ textToColor
+    where spl :: T.Text -> [Float]
+          spl t = read . (T.unpack) <$> ( tail $ T.split (\c -> c == ' ') t)
+          colr [] = Nothing
+          colr (r:g:b:a:_) = Just (makeColor r g b a)
+          textToColor :: T.Text -> Parser Color
+          textToColor t = return $ fromJust $ colr (spl t) 
 
 data Block = Block
    { blockType :: BlockType
    , coordinate :: (Int, Int)
    , blockColor :: Color
-   }
+   } deriving (Generic)
    
+instance ToJSON Block where
+   toEncoding = genericToEncoding defaultOptions
+   
+instance FromJSON Block   
+
 instance Eq Block where
    x == y = a && b
      where a = (blockType x) == (blockType y)

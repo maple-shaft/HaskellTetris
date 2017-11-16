@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric #-}
 module Mino where
 
 import Block
@@ -7,6 +8,8 @@ import Data.Maybe
 import Data.List as L
 import Data.Map as M
 import Graphics.Gloss
+import GHC.Generics
+import Data.Aeson
 
 -- starting coodinates for all 7 types
 icoord, ocoord, tcoord, jcoord, lcoord, scoord, zcoord :: [(Int,Int)]
@@ -78,14 +81,24 @@ data Rotation = Clockwise | CounterClockwise
 type MinoState = Int
 
 data MinoType = I | O | T | J | L | S | Z
-       deriving (Show, Eq, Ord)
+       deriving (Show, Eq, Ord, Generic)
+       
+instance ToJSON MinoType where
+  toEncoding = genericToEncoding defaultOptions
+  
+instance FromJSON MinoType
 
 data Mino = Mino
    { minoType :: MinoType
    , minoBlocks :: [Block]
    , minoState :: MinoState
    , minoLocation :: (Int,Int)
-   } deriving (Show)
+   } deriving (Show, Generic)
+   
+instance ToJSON Mino where
+  toEncoding = genericToEncoding defaultOptions
+  
+instance FromJSON Mino
    
 instance Eq Mino where
    x == y = typesEqual && blocksEqual
@@ -96,7 +109,7 @@ instance Eq Mino where
 getMinoColor :: MinoType -> Color
 getMinoColor t = case t of
                     I -> cyan
-                    O -> yellow
+                    O -> makeColorI 0xE0 0xE0 0x0 0xE0
                     T -> magenta
                     J -> blue
                     L -> orange

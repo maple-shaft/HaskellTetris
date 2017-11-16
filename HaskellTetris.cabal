@@ -16,20 +16,23 @@ extra-source-files:  README.md
 executable HaskellTetris
   hs-source-dirs:      src
   main-is:             Main.hs
-  other-modules:       Block, Mino, Board, HGame, HConsole, Menu, GlossUtilities
+  other-modules:       Block, Mino, Board, HGame, HConsole, Menu, Timer, GlossUtilities, WSClient
   default-language:    Haskell2010
   ghc-options:
-     -O2 -Wall -threaded
+     -O2 -threaded
   build-depends:       base >= 4.7 && < 5
                      , gloss
                      , time
                      , containers
                      , random
-                     , OpenGL
-                     , GLUT
                      , bytestring
                      , template-haskell
                      , file-embed
                      , bmp
                      , JuicyPixels
                      , vector
+                     , websockets
+                     , text
+                     , mtl
+                     , network
+                     , aeson

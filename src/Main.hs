@@ -1,5 +1,19 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Main where
 
+import Debug.Trace
+import Network.Socket as S
+import Network.WebSockets
+import Control.Monad
+import Control.Monad.Trans
+import Control.Concurrent
+import Control.Exception
+import Data.Maybe
+import Data.Aeson
+import Data.ByteString.Lazy.Char8 as Char8
+import System.IO as SIO
+import qualified Data.Text as T (Text, pack, unpack)
+import qualified Data.Text.IO as T
 import Graphics.Gloss
 import Graphics.Gloss.Interface.IO.Game
 import Block
@@ -9,8 +23,14 @@ import Mino
 import HConsole
 import GlossUtilities
 import Menu
+import WSClient
 
 -- constants
+host :: String
+host = "localhost"
+                                                               
+port :: Int
+port = 3000
 
 width, height, offset, fps :: Int
 width = 600
@@ -34,59 +54,71 @@ render bg game = return $ pictures $ renderPictures $ state game
         menuBox = renderMenu menuPic
         gameOverPicture = scale 0.5 0.5 $ translate (-350) 0 $ text "GAME OVER"
         renderPictures c
-            | c == Started    = [bg, (renderBoard b), scorePane, nextBox, holdBox, levelBox]
+            | c == Started || c == MultiStarted  = [bg, (renderBoard b), scorePane, nextBox, holdBox, levelBox]
             | c == NotStarted = [bg, menuBox]
             | otherwise       = [bg, renderRestartButton, gameOverPicture]
 
-testEvent :: Event -> HGame -> IO HGame
-testEvent (EventKey (SpecialKey KeyLeft) pressed _ _) old =
-   return $ case pressed of
-               Down -> old { button = Just ALeft }
-               Up   -> old { button = Nothing }
-testEvent (EventKey (SpecialKey KeyRight) pressed _ _) old =
-   return $ case pressed of
-               Down -> old { button = Just ARight }
-               Up -> old { button = Nothing }
-testEvent (EventKey (SpecialKey KeyDown) pressed _ _) old =
-   return $ case pressed of
-               Down -> old { button = Just ADown }
-               Up -> old { button = Nothing }
-testEvent (EventKey (SpecialKey KeyUp) pressed _ _) old =
-   return $ case pressed of
-               Down -> old { button = Just AUp, buttonChanged = True }
-               Up -> old { button = Nothing }
-testEvent (EventKey (Char 'd') pressed _ _) old =
-   return $ case pressed of
-               Down -> old { button = Just AD, buttonChanged = True }
-               Up -> old { button = Nothing }
-testEvent (EventKey (Char 'a') pressed _ _) old =
-   return $ case pressed of
-               Down -> old { button = Just AA, buttonChanged = True }
-               Up -> old { button = Nothing }
-testEvent (EventKey (Char 's') pressed _ _) old =
-   return $ case pressed of
-               Down -> old { button = Just AS, buttonChanged = True }
-               Up -> old { button = Nothing }
-testEvent (EventKey (MouseButton LeftButton) Down _ c) old = return $ newState $ state old
-  where randTypes = randomTypes old
-        startOverState = initialState randTypes
+addAnOutgoingMessage out state = addMessage out (T.pack $ Char8.unpack $ encode state)
+
+testEvent :: Maybe (MVar [T.Text]) -> Event -> HGame -> IO HGame
+testEvent o (EventKey k pressed _ c) old =
+    case o of
+      Nothing  -> return newSt
+      Just out -> addAnOutgoingMessage out newSt >> return newSt
+  where newSt = case (k, pressed) of
+                   (_, Up)      -> old { button = Nothing }
+                   ((SpecialKey KeyLeft), _) -> old { button = Just ALeft }
+                   ((SpecialKey KeyRight), _) -> old { button = Just ARight }
+                   ((SpecialKey KeyDown), _) -> old { button = Just ADown }
+                   ((SpecialKey KeyUp), _) -> old { button = Just AUp, buttonChanged = True }
+                   ((Char 'd'), _) -> old { button = Just AD, buttonChanged = True }
+                   ((Char 'a'), _) -> old { button = Just AA, buttonChanged = True }
+                   ((Char 's'), _) -> old { button = Just AS, buttonChanged = True }
+                   ((MouseButton LeftButton), _) -> newState $ state old
+                   (_,_) -> old
+        randTypes = randomTypes old
+        startOverState = initialState randTypes   
         invokeClick = case (checkClickEvent c) of
-                                 Just StartButton -> startOverState  { state = Started }
+                                 Just StartButton -> startOverState { state = Started }
+                                 Just ExitButton  -> startOverState { state = MultiStarted }
                                  _                -> old
         newState h
             | h == Started = old
             | otherwise    = invokeClick
-            
-testEvent _ old = return old
+
+testEvent _ _ old = return old
 
 step :: Float -> HGame -> IO HGame
-step seconds old = if (state old) == Started
-                      then return $ stepWorld seconds old
-                      else return old
+step seconds old | (state old) == Started = return steppedWorld
+                      | (state old) == MultiStarted = return steppedWorld
+                      | otherwise = return old
+  where steppedWorld = stepWorld seconds old
+        steppedWorldJSON = encode steppedWorld
+        
+app :: [MinoType] -> Picture -> ClientApp ()
+app ts bg conn = do
+  SIO.putStrLn "Connected"
+  out <- (newMVar [(T.pack "K|12345")]) :: IO (MVar [T.Text])
+  inc <- (newMVar []) :: IO (MVar [T.Text])
+  let mqs = MessageQueues { incoming = inc, outgoing = out }
+  _ <- receiveMessages conn inc
+  _ <- sendMessages conn out
+  playIO window background fps (initialState ts) (render bg) (testEvent $ Just out) step
 
+       
 main :: IO()
 main = do
   ts <- getRandomTypes
   bg <- backgroundPic
-  playIO window background fps (initialState ts) (render bg) testEvent step 
-
+  result <- try $ S.withSocketsDo $ runClient host port "" (app ts bg) :: IO (Either SomeException ())
+  case result of
+        Left _ -> SIO.putStrLn "No server found!"
+                     >>  playIO window
+                                background
+                                fps
+                                (initialState ts)
+                                (render bg)
+                                (testEvent Nothing)
+                                step
+        Right _ -> return () 
+   

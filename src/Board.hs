@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric #-}
 module Board where
 
 import Data.Maybe
@@ -6,7 +7,13 @@ import Data.Map as M
 import Graphics.Gloss
 import Block
 import Mino
-  
+import qualified Data.Text as T (pack)
+import Data.Aeson
+import GHC.Generics
+
+data Player = Player | Opponent 
+  deriving (Show, Eq)
+
 data Board = Board
   { topLeft :: (Float, Float)
   , boardBlocks :: Map (Int, Int) Block
@@ -15,7 +22,28 @@ data Board = Board
   , activeMino :: Mino
   , clearingTime :: Float
   , clearCycled :: Bool
-  } deriving (Show)
+  } deriving (Show, Generic)
+  
+instance ToJSON Board where
+  toJSON (Board _ _ sb hb am ct cc) =
+    object [ (T.pack "settledBlocks") .= sb
+           , (T.pack "hintBlocks") .= hb
+           , (T.pack "activeMino") .= am
+           , (T.pack "clearingTime") .= ct
+           , (T.pack "clearCycled") .= cc
+           ]
+  --toEncoding b = foldable [(toJSON b)]
+  
+instance FromJSON Board where
+  parseJSON = withObject "Board" objectToBoard
+    where objectToBoard v = Board 
+                              <$> v .:? (T.pack "topLeft") .!= (0,0)
+                              <*> v .:? (T.pack "boardBlocks") .!= createBackgroundBlocks
+                              <*> v .: (T.pack "settledBlocks")
+                              <*> v .: (T.pack "hintBlocks")
+                              <*> v .: (T.pack "activeMino")
+                              <*> v .: (T.pack "clearingTime")
+                              <*> v .: (T.pack "clearCycled")
 
 --constants
 boardHeight, boardWidth :: Int
@@ -29,10 +57,13 @@ startXOffset = 100
 allBackgroundBlocks :: [Block]
 allBackgroundBlocks = makeBackgroundBlock <$> [1..boardWidth] <*> [1..boardHeight]
 
+createBackgroundBlocks :: Map (Int, Int) Block
+createBackgroundBlocks = M.fromList $ (L.map (\x-> ((coordinate x), x)) allBackgroundBlocks)
+
 startingBoard :: MinoType -> Board
 startingBoard t = Board
                   { topLeft = (0,0)
-                  , boardBlocks = M.fromList $ (L.map (\x-> ((coordinate x), x)) allBackgroundBlocks)
+                  , boardBlocks = createBackgroundBlocks
                   , settledBlocks = M.empty
                   , hintBlocks = M.empty
                   , activeMino = makeMino t
