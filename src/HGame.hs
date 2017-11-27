@@ -3,6 +3,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 module HGame where
 
+import Debug.Trace
 import Board
 import Block
 import Mino
@@ -32,20 +33,30 @@ data HGame = Game
   , lineScore :: Int
   , holdMino :: Maybe Mino
   , minoMovedYet :: Bool
-  , timers :: Map String Timer
   , button :: Maybe Action
+  , timers :: Map String Timer
   , buttonChanged :: Bool
   , score :: Int
   , randomTypes :: [MinoType]
   , state :: State
   }
+  
+instance Timeable HGame where
+  getTimers h = timers h
+  setTimers h ts = h { timers = ts }
+  getTimerCallbacks = M.fromList $ [ ("moveDownTimer",stepMoveDown)
+                                   , ("directionalTimer",id)
+                                   , ("lockTimer",id)
+                                   , ("animationTimer",animateLines)
+                                   , ("clearTimer",clearLines)
+                                   ]
 
 instance Show HGame where
   show h = show ( [show.activeBoard,show.nextMino,show.level,show.button,
             show.buttonChanged, show.timers, show.score, show.state] <*> [h] )
 
 instance ToJSON HGame where
-  toJSON sta@(Game ab _ nm l ls hm mmy _ b bc sc _ st) =
+  toJSON sta@(Game ab _ nm l ls hm mmy b _ bc sc _ st) =
     object [ "activeBoard" .= (ab)
            , "nextMino" .= (nm)
            , "level" .= l
@@ -69,8 +80,8 @@ instance FromJSON HGame where
                               <*> v .: "lineScore"
                               <*> v .: "holdMino"
                               <*> v .: "minoMovedYet"
-                              <*> v .:? "timers" .!= M.empty
                               <*> v .: "button"
+                              <*> v .:? "timers" .!= M.empty
                               <*> v .: "buttonChanged"
                               <*> v .: "score"
                               <*> v .:? "randomTypes" .!= []
@@ -88,8 +99,8 @@ initialState ts = is { activeBoard = betterb }
               , state = NotStarted
               , level = 1
               , lineScore = 0
-              , timers = defaultTimers
               , button = Nothing
+              , timers = defaultTimers
               , buttonChanged = False
               , score = 0
               , randomTypes = tail $ tail ts
@@ -110,31 +121,32 @@ lineScoreCalc l s | s == 0 = 0
   
 -- | General step World function.  Master function that calls other game state modifying functions
 stepWorld :: Float -> HGame -> HGame
-stepWorld seconds old = if (state n5) == Over then noChangeGameOver else n5
+stepWorld seconds old = if (state n3) == Over then noChangeGameOver else n3
   where action = button old
-        newTimers = updateTimers (timers old) seconds
-        n2 = old { timers = newTimers
-                 , activeBoard = (updateClearTimer seconds (activeBoard old))
-                 }
+        --newClearTimer = updateClearTimer seconds (clearTimer $ activeBoard old)
+        --n1 = addClearLineTimersIfNeeded old
+        n2 = updateTimers old seconds
+        --newBoard = (activeBoard old) { clearTimer = newClearTimer }
+        -- n2 = old { timers = newTimers
+        --         , activeBoard = newBoard
+        --         }
         allActions = L.map ($ action) [moveMinoToBottomAndStop, moveAction, rotateAction, holdAction, hintUpdate]
         n3 = L.foldl (flip (.)) id allActions $ n2
-        n4 = stepMoveDown n3
-        n5 = clearLinesState n4
+        --n4 = stepMoveDown n3
+        --n5 = clearLinesState n3
         noChangeGameOver = old { state = Over }
 
 stepMoveDown :: HGame -> HGame
-stepMoveDown old = newState
+stepMoveDown old = new
   where b = activeBoard old
         m = activeMino b
-        shouldMove = isCycled $ (timers old) ! "moveDownTimer"
         didTheMinoMove = minoMovedYet old
         couldMove = couldMinoMoveDown m (activeBoard old)
-        new = if (shouldMove && (not couldMove))
-                 then if didTheMinoMove then (stopMino old) else (stopMino old { state = Over })
-                 else old
-        newState = if (shouldMove && couldMove)
-                  then moveDown $ new
-                  else new
+        new = if (not couldMove)
+                 then if didTheMinoMove
+                          then (stopMino old)
+                          else (stopMino old { state = Over })
+                 else moveDown old
                   
 moveAction :: Maybe Action -> HGame -> HGame
 moveAction action old = 
@@ -143,7 +155,7 @@ moveAction action old =
        else old { activeBoard = b { activeMino = newM } }
   where b = activeBoard old
         m = activeMino b
-        shouldMoveLeftOrRight = isCycled $ (timers old) ! "horizontalTimer"
+        shouldMoveLeftOrRight = isCycled $ (timers old) ! "directionalTimer"
         (deltaX, deltaY) = case (action, shouldMoveLeftOrRight) of
                               (Just ALeft, True) -> (1,0)
                               (Just ARight, True) -> (-1,0)
@@ -151,7 +163,7 @@ moveAction action old =
                               _ -> (0,0)
         cMovedBlocks = all (\a -> couldBlockMoveDelta b (coordinate a) (deltaX,deltaY)) (minoBlocks m)
         newM = moveMino m (deltaX,deltaY)
-        
+     
 rotateAction :: Maybe Action -> HGame -> HGame
 rotateAction action old =
     if ((not cMovedBlocks) || (rotate == 0) || (not $ buttonChanged old))
@@ -203,42 +215,64 @@ hintUpdate action old =
       else old { activeBoard = b { hintBlocks = newHintBlocks } }
   where b = activeBoard old
         m = activeMino b
-        (Timer lbr _ _) = (timers old) ! "moveDownTimer"
+        (Timer _ lbr _ _) = (timers old) ! "moveDownTimer"
         (_,minoBottom) = findMinoBottom b m
         hB = sort $ getAllHintBlocks b
         mC = sort $ (coordinate) <$> (minoBlocks m)
         newHintBlocks = insertBlocksToHint (zipWith (\(mX,mY) hh -> moveBlockAbsolute (mX, mY + minoBottom) hh) mC hB)
         
--- | Start all animation to clear the lines then get rid of them
-clearLinesState :: HGame -> HGame
-clearLinesState old = 
-    old { activeBoard = newBoard
-        , score = newScore
-        , level = newLevel
-        , timers = newTimers
-        , lineScore = newLines
-        }
+addClearLineTimersIfNeeded :: HGame -> HGame
+addClearLineTimersIfNeeded old = if doesClearTimerExist old
+                                    then old
+                                    else if shouldClear
+                                            then old { timers = newTimers }
+                                            else old
   where b = activeBoard old
-        shouldClear = shouldClearLineNow b
-        newBoard = if (shouldClear)
-                      then (clearCompLines b) { clearingTime = 0 }
-                      else b { settledBlocks = newAnimatedSettledBlocks }
-        newScore = if (shouldClear)
+        clearableBlocks = L.concat $ findCompleteLines b
+        shouldClear = (length clearableBlocks) > 0
+        clearTimerExists = not $ (M.lookup "clearTimer" (timers old)) == Nothing
+        newTimers = M.insert "clearTimer" createClearTimer $ M.insert "animationTimer" createClearAnimationTimer (timers old)
+        
+animateLines :: HGame -> HGame
+animateLines old = old { activeBoard = b { settledBlocks = newAnimatedSettledBlocks } }
+  where b = activeBoard old
+        clearableBlocks = L.concat $ findCompleteLines b
+        brightenedBlocks = L.map (\x -> x { blockColor = light $ blockColor x }) clearableBlocks
+        newAnimatedSettledBlocks = L.foldr (\x acc -> M.insert (coordinate x) x acc) (settledBlocks b) brightenedBlocks
+        
+clearLines :: HGame -> HGame
+clearLines old = new { activeBoard = newB
+                     , timers = newTimersUpdatedSpeed
+                     , score = newScore
+                     , level = newLevel
+                     , lineScore = newLines
+                     }
+  where b = activeBoard old
+        clearableBlocks = L.concat $ findCompleteLines b
+        shouldClear = (length clearableBlocks) > 0
+        newB = if shouldClear
+                  then clearCompLines b
+                  else b
+        newTimers = if shouldClear
+                       then M.delete "animationTimer" $ M.delete "clearTimer" (timers old)
+                       else timers old
+        newScore = if shouldClear
                       then (lineScoreCalc (level old) ((length clearableBlocks) `quot` 10)) + score old
                       else score old
-        newLines = if (shouldClear)
+        newLines = if shouldClear
                       then (lineScore old) + ((length clearableBlocks) `quot` 10)
                       else lineScore old
         newLevel = (newLines `div` 10) + 1
         newSpeed = calcSpeed newLevel
         newMoveDownTimer = updateSpeed ((timers old) ! "moveDownTimer") newSpeed
-        newTimers = M.insert "moveDownTimer" newMoveDownTimer (timers old)
-        clearableBlocks = L.concat $ findCompleteLines b
-        brightenedBlocks = L.map (\x -> x { blockColor = light $ blockColor x }) clearableBlocks
-        newAnimatedSettledBlocks = L.foldr (\x acc -> M.insert (coordinate x) x acc) (settledBlocks b) brightenedBlocks
-
+        newTimersUpdatedSpeed = M.insert "moveDownTimer" newMoveDownTimer newTimers
+        new = stopMinoAfterClearCheck old
+        
 moveDown :: HGame -> HGame
-moveDown g = moveAction (Just ADown) (g { minoMovedYet = True })
+moveDown g = new
+  where new = if doesClearTimerExist g
+                 then g
+                 else moveAction (Just ADown) (g { minoMovedYet = True})
 
 moveMinoToBottomAndStop :: Maybe Action -> HGame -> HGame
 moveMinoToBottomAndStop action old =
@@ -249,18 +283,27 @@ moveMinoToBottomAndStop action old =
         m = activeMino b
         delta = findMinoBottom b m
         newM = moveMino m delta
-        
+
 stopMino :: HGame -> HGame
-stopMino old =
-    ( old { activeBoard = newBoard { settledBlocks = newSettled }
-                   , randomTypes = tail $ randomTypes old
-                   , nextMino = newNextMino
-                   , minoMovedYet = False
-                   }
-               )
+stopMino old = newer
+  where b = activeBoard old
+        mino = activeMino b
+        nMino = nextMino old
+        newBoard = newBoardWithActiveMino nMino b
+        newSettled = insertBlocksToSettled b (minoBlocks mino)
+        settledNew = old { activeBoard = newBoard { settledBlocks = newSettled }}
+        new = (addClearLineTimersIfNeeded settledNew) 
+        newer = if doesClearTimerExist new
+                   then new
+                   else stopMinoAfterClearCheck new     
+        
+stopMinoAfterClearCheck :: HGame -> HGame
+stopMinoAfterClearCheck old = old { randomTypes = tail $ randomTypes old
+                                  , nextMino = newNextMino
+                                  , minoMovedYet = False
+                                  }
+               
   where b = activeBoard old
         mino = activeMino b
         newType = head $ randomTypes old
-        newSettled = insertBlocksToSettled b (minoBlocks mino)
-        newBoard = newBoardWithActiveMino (nextMino old) b
         newNextMino = makeMino newType

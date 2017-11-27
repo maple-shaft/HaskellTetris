@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Board where
 
 import Data.Maybe
@@ -7,6 +8,7 @@ import Data.Map as M
 import Graphics.Gloss
 import Block
 import Mino
+import Timer
 import qualified Data.Text as T (pack)
 import Data.Aeson
 import GHC.Generics
@@ -20,30 +22,25 @@ data Board = Board
   , settledBlocks :: Map (Int, Int) Block
   , hintBlocks :: Map (Int, Int) Block
   , activeMino :: Mino
-  , clearingTime :: Float
-  , clearCycled :: Bool
+  , clearTimer :: Maybe Timer
   } deriving (Show, Generic)
   
 instance ToJSON Board where
-  toJSON (Board _ _ sb hb am ct cc) =
-    object [ (T.pack "settledBlocks") .= sb
-           , (T.pack "hintBlocks") .= hb
-           , (T.pack "activeMino") .= am
-           , (T.pack "clearingTime") .= ct
-           , (T.pack "clearCycled") .= cc
+  toJSON (Board _ _ sb hb am _) =
+    object [ "settledBlocks" .= sb
+           , "hintBlocks" .= hb
+           , "activeMino" .= am
            ]
-  --toEncoding b = foldable [(toJSON b)]
   
 instance FromJSON Board where
   parseJSON = withObject "Board" objectToBoard
     where objectToBoard v = Board 
-                              <$> v .:? (T.pack "topLeft") .!= (0,0)
-                              <*> v .:? (T.pack "boardBlocks") .!= createBackgroundBlocks
-                              <*> v .: (T.pack "settledBlocks")
-                              <*> v .: (T.pack "hintBlocks")
-                              <*> v .: (T.pack "activeMino")
-                              <*> v .: (T.pack "clearingTime")
-                              <*> v .: (T.pack "clearCycled")
+                              <$> v .:? "topLeft" .!= (0,0)
+                              <*> v .:? "boardBlocks" .!= createBackgroundBlocks
+                              <*> v .: "settledBlocks"
+                              <*> v .: "hintBlocks"
+                              <*> v .: "activeMino"
+                              <*> v .:? "clearTimer" .!= Nothing
 
 --constants
 boardHeight, boardWidth :: Int
@@ -67,10 +64,18 @@ startingBoard t = Board
                   , settledBlocks = M.empty
                   , hintBlocks = M.empty
                   , activeMino = makeMino t
-                  , clearingTime = 0
-                  , clearCycled = False
+                  , clearTimer = Nothing
                   }
                   
+shouldClearLineNow :: Board -> Bool
+shouldClearLineNow b = if clearTimer b == Nothing
+                          then False
+                          else (areThereCompleteLines && (not isAnimating))
+  where areThereCompleteLines = not ((findNonCompleteLineIndices b) == []) 
+        isAnimating = not $ isCycled $ fromJust $ clearTimer b
+
+
+{-                  
 updateClearTimer :: Float -> Board -> Board
 updateClearTimer seconds b = --trace (show (shouldAnimateClearLine potentialBoard)) $
     new
@@ -89,7 +94,7 @@ shouldAnimateClearLine b = --trace (show isTimeUp) $
 shouldClearLineNow :: Board -> Bool
 shouldClearLineNow b = (areThereCompleteLines && (not (shouldAnimateClearLine b)))
   where areThereCompleteLines = not ((findNonCompleteLineIndices b) == []) 
-        
+-}        
 
 getBlockAt :: (Int, Int) -> Board -> Maybe Block
 getBlockAt (x,y) b = lookupSettled
@@ -179,6 +184,9 @@ clearCompLines b = if settledBlocksToClear == []
         newSettledBlocks2 = insertBlocksToSettled finalBoard f
 
 newBoardWithActiveMino :: Mino -> Board -> Board
-newBoardWithActiveMino m b = b { activeMino = m, hintBlocks = newHint }
-  where newHintBlocks = makeHintBlocks m
+newBoardWithActiveMino nm b = b { activeMino = nm, hintBlocks = newHint }
+  where m = activeMino b
+        --newSettled = insertBlocksToSettled b (minoBlocks m)
+        newHintBlocks = makeHintBlocks nm
         newHint = insertBlocksToHint newHintBlocks
+        
