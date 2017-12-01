@@ -58,8 +58,8 @@ bottomMostCoordinate b = middleY - (height / 2)
 renderButton :: MenuButton -> Picture
 renderButton b = uncurry translate (location b) $ menuButtonPicture b 
 
-renderMenu :: Picture
-renderMenu = pictures [menuBox, title, startB, exitB]
+renderMenu :: Picture -> Picture
+renderMenu mPic = pictures [menuBox, title, startB, exitB]
   where (mX,mY) = menuLocation
         (tX,tY) = menuLabelLocation
         menuBox = translate mX mY $ menuBgPicture

@@ -20,6 +20,8 @@ bgTransparencyByte = 150
 bgFileData :: B.ByteString
 bgFileData = $(embedFile "res/bg.bmp")
 
+menuFileData :: B.ByteString
+menuFileData = $(embedFile "res/menu.png")
 menuBgFileData :: B.ByteString
 menuBgFileData = $(embedFile "res/menuc.png")
 
@@ -44,6 +46,9 @@ startButtonPic = createPictureFromPNG startButtonFileData
 
 exitButtonPic :: Picture
 exitButtonPic = createPictureFromPNG exitButtonFileData
+
+menuPic :: Picture
+menuPic = createPictureFromPNG menuFileData
 
 logoPic :: Picture
 logoPic = createPictureFromPNG logoFileData

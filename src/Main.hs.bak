@@ -51,7 +51,7 @@ render bg game = return $ pictures $ renderPictures $ state game
         nextBox = renderNextMino $ nextMino game
         holdBox = renderHoldMino $ holdMino game
         levelBox = renderLevelBox $ level game
-        menuBox = renderMenu
+        menuBox = renderMenu menuPic
         gameOverPicture = scale 0.5 0.5 $ translate (-350) 0 $ text "GAME OVER"
         renderPictures c
             | c == Started || c == MultiStarted  = [bg, (renderBoard b), scorePane, nextBox, holdBox, levelBox]
